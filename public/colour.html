@@ -17,15 +17,13 @@
   .drape-label { position:absolute; left:12px; bottom:12px; color:#fff; font-weight:600;
     text-shadow:0 1px 4px rgba(0,0,0,.7); font-size:.9rem; }
   .donkey-corner { position:absolute; right:8px; bottom:8px; z-index:5; pointer-events:none; }
-  .swatches { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+  .swatches { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; justify-content:center; }
   .swatch { width:38px; height:38px; border-radius:50%; border:2px solid #fff; box-shadow:0 2px 6px rgba(0,0,0,.15); cursor:pointer; }
   .swatch.active { outline:3px solid var(--brown); outline-offset:2px; }
   .palette-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(70px,1fr)); gap:10px; }
   .palette-grid .p { height:60px; border-radius:12px; box-shadow:inset 0 0 0 2px rgba(255,255,255,.4); }
-  .tabs { display:flex; gap:8px; flex-wrap:wrap; margin:14px 0; }
-  .tabs button { padding:6px 14px; font-size:.85rem; }
-  .tabs button.active { background:var(--mint-dark); }
   .hide { display:none !important; }
+  #manual-area label { display:block; margin-top:10px; font-weight:600; font-size:.9rem; }
 </style>
 </head>
 <body>
@@ -53,212 +51,16 @@
     </div>
     <div class="bubble" id="bubble" style="margin:14px auto;max-width:480px">let's try a few colours…</div>
     <div class="swatches" id="swatches"></div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;justify-content:center">
       <button id="next-drape">Next drape →</button>
       <button id="finish-btn">See my palette ✨</button>
     </div>
   </div>
 
   <div id="photo-area" class="hide" style="margin-top:16px">
-    <img id="photo-preview" style="max-width:100%;border-radius:16px" />
-    <div class="bubble" id="photo-bubble" style="margin-top:12px">lovely. i'll estimate from this.</div>
-    <div class="swatches" id="photo-swatches"></div>
-    <button id="photo-finish" style="margin-top:12px">See my palette ✨</button>
+    <img id="photo-preview" style="max-width:100%;border-radius:16px;display:block;margin:0 auto" />
+    <div class="bubble" id="photo-bubble" style="margin:12px auto">lovely. i'll estimate from this.</div>
+    <button id="photo-finish" style="margin-top:12px;display:block;margin-left:auto;margin-right:auto">See my palette ✨</button>
   </div>
 
-  <div id="manual-area" class="hide card" style="margin-top:16px">
-    <label>Skin undertone
-      <select id="m-undertone">
-        <option value="cool">Cool (pink/blue)</option>
-        <option value="warm">Warm (yellow/golden)</option>
-        <option value="neutral">Neutral / olive</option>
-      </select>
-    </label>
-    <label>Hair colour depth
-      <select id="m-hair">
-        <option value="light">Light (blonde/light brown)</option>
-        <option value="medium">Medium brown</option>
-        <option value="dark">Dark (black/dark brown)</option>
-        <option value="red">Red / auburn</option>
-      </select>
-    </label>
-    <label>Eye colour
-      <select id="m-eyes">
-        <option value="blue">Blue / grey</option>
-        <option value="green">Green / hazel</option>
-        <option value="brown">Brown</option>
-        <option value="dark">Very dark brown / black</option>
-      </select>
-    </label>
-    <button id="manual-finish" style="margin-top:12px">See my palette ✨</button>
-  </div>
-
-  <div id="results" class="hide card" style="margin-top:24px">
-    <h2 id="res-title"></h2>
-    <p id="res-desc"></p>
-    <h3 style="margin-top:16px">Your palette</h3>
-    <div class="palette-grid" id="res-palette"></div>
-    <h3 style="margin-top:16px">Neutrals</h3>
-    <div class="palette-grid" id="res-neutral"></div>
-    <h3 style="margin-top:16px">Accents</h3>
-    <div class="palette-grid" id="res-accent"></div>
-    <h3 style="margin-top:16px">Jewellery</h3>
-    <p id="res-jewel"></p>
-    <p style="font-size:.85rem;opacity:.7;margin-top:14px" id="res-note"></p>
-    <button id="retake" style="margin-top:12px">↺ Retake</button>
-  </div>
-</div>
-
-<script type="module">
-import { requireUser, navbar } from "/js/shared.js";
-import { mountDonkey, speakInto } from "/js/donkey.js";
-
-const me = await requireUser();
-document.getElementById("topbar").innerHTML = navbar(me);
-mountDonkey(document.getElementById("donkey-cam"), "idle", 90);
-const $ = (id) => document.getElementById(id);
-
-// ---------- twelve-season palettes (condensed) ----------
-const SEASONS = {
-  "Light Spring": { desc:"Warm, light and clear.", colours:["#ffd9a0","#ffb6a0","#c7e4a5","#a8d8c9","#ffc9d9","#f4e6a0"], neutral:["#f3e4c8","#d8c8a8"], accent:["#ff8b6a","#8ecf9b"], jewel:"Gold and warm rose-gold.", temp:"warm", value:"light", chroma:"clear" },
-  "True Spring": { desc:"Warm and bright.", colours:["#ffc061","#ff9d6a","#a3d977","#6fc9b0","#ff8fa3","#ffe066"], neutral:["#e6d2a8","#c4a878"], accent:["#ff7043","#4caf7a"], jewel:"Gold, warm copper.", temp:"warm", value:"light-medium", chroma:"bright" },
-  "Bright Spring": { desc:"Warm, bright and contrasty.", colours:["#ffd23f","#ff7f50","#5fd47a","#3ec9b5","#ff5fa2","#fff35c"], neutral:["#f0e0c0","#c8b090"], accent:["#ff3d6e","#00b894"], jewel:"Shiny gold, bright gemstones.", temp:"warm", value:"medium", chroma:"very bright" },
-  "Light Summer": { desc:"Cool, light and soft.", colours:["#cfe0f0","#e6d1f0","#ffd1dd","#b8e0d2","#d0e8c8","#f2e2c4"], neutral:["#e8e4dc","#c4c0b8"], accent:["#a3b8d8","#c9a8c4"], jewel:"Silver, pale gold.", temp:"cool", value:"light", chroma:"soft" },
-  "True Summer": { desc:"Cool and muted.", colours:["#a8c0d8","#c4a8c4","#e0a8b4","#a8c4b4","#b8c8a8","#d8c0a0"], neutral:["#dcdcd4","#b0b0a8"], accent:["#8fa8c4","#a888a8"], jewel:"Silver, white gold.", temp:"cool", value:"medium", chroma:"muted" },
-  "Soft Summer": { desc:"Cool, soft and dusty.", colours:["#b8c0c8","#c8b8c0","#c8b8a8","#a8b8a8","#b0a8b8","#d8c8b8"], neutral:["#d8d0c8","#a8a098"], accent:["#9fa8b0","#a89890"], jewel:"Brushed silver, matte gold.", temp:"cool", value:"medium", chroma:"very soft" },
-  "Soft Autumn": { desc:"Warm, soft and muted.", colours:["#d8b88f","#c8a878","#b8a888","#a8a080","#c8a890","#d8c8a8"], neutral:["#e0d0b8","#b0a088"], accent:["#a88060","#8fa080"], jewel:"Matte gold, bronze.", temp:"warm", value:"medium", chroma:"soft" },
-  "True Autumn": { desc:"Warm and rich.", colours:["#d98c3f","#c46b3f","#a8a040","#7a9a5a","#c45f5f","#d9a86a"], neutral:["#d8c0a0","#a89070"], accent:["#b05a2a","#6a8a4a"], jewel:"Gold, copper, amber.", temp:"warm", value:"medium-dark", chroma:"rich" },
-  "Deep Autumn": { desc:"Warm, deep and rich.", colours:["#b8703a","#a04a2a","#7a7a30","#4a6a40","#8a3a4a","#a07840"], neutral:["#a89070","#7a6850"], accent:["#8a3020","#4a5a30"], jewel:"Antique gold, deep bronze.", temp:"warm", value:"deep", chroma:"rich" },
-  "Deep Winter": { desc:"Cool, deep and clear.", colours:["#4a6a9a","#6a3a6a","#9a2a4a","#2a6a5a","#3a3a6a","#8a1a2a"], neutral:["#d8d8e0","#2a2a30"], accent:["#c42040","#1a5a8a"], jewel:"Silver, platinum.", temp:"cool", value:"deep", chroma:"clear" },
-  "True Winter": { desc:"Cool, bright and contrasty.", colours:["#2a5a9a","#7a2a8a","#c41a4a","#1a8a7a","#1a2a6a","#e02a4a"], neutral:["#ffffff","#1a1a20"], accent:["#ff0040","#00a0c0"], jewel:"Silver, white gold.", temp:"cool", value:"deep", chroma:"bright" },
-  "Bright Winter": { desc:"Cool, bright and icy.", colours:["#3a8ae0","#c43ad0","#ff2a6a","#2ad0b0","#4a3ae0","#ff3a8a"], neutral:["#f0f0ff","#202030"], accent:["#ff0060","#00c0e0"], jewel:"Polished silver, bright gems.", temp:"cool", value:"medium-deep", chroma:"very bright" },
-};
-
-// heuristic palette guesser from a couple of signals
-function guessSeason({ undertone, hair, eyes }) {
-  // crude, honest heuristic — result should be presented as an estimate
-  const warm = undertone === "warm" || hair === "red";
-  const cool = undertone === "cool";
-  const deep = hair === "dark" || eyes === "dark";
-  const light = hair === "light";
-  if (warm && light) return "Light Spring";
-  if (warm && deep) return "Deep Autumn";
-  if (warm) return "True Autumn";
-  if (cool && light) return "Light Summer";
-  if (cool && deep) return "Deep Winter";
-  if (cool) return "True Summer";
-  // neutral fallback
-  return deep ? "Deep Winter" : "Soft Summer";
-}
-
-const DRAPES = ["#ffb6a0","#a8d8c9","#ffd9a0","#a8c0d8","#c8b8a8","#c45f5f","#7a9a5a","#e6d1f0","#ffd23f","#2a5a9a"];
-let drapeIdx = 0;
-let drapeSignals = [];
-let camStream = null;
-
-function renderSwatches(container, onPick) {
-  container.innerHTML = "";
-  DRAPES.forEach((c, i) => {
-    const s = document.createElement("div");
-    s.className = "swatch" + (i === drapeIdx ? " active" : "");
-    s.style.background = c;
-    s.title = c;
-    s.onclick = () => { drapeIdx = i; applyDrape(); onPick && onPick(); };
-    container.appendChild(s);
-  });
-}
-
-function applyDrape() {
-  const d = $("drape");
-  d.style.background = DRAPES[drapeIdx];
-  $("drape-label").textContent = `Drape ${drapeIdx + 1} · ${DRAPES[drapeIdx]}`;
-  renderSwatches($("swatches"));
-}
-
-async function startCamera() {
-  $("setup-err").textContent = "";
-  try {
-    camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode:"user" }, audio:false });
-    $("video").srcObject = camStream;
-    $("setup").classList.add("hide");
-    $("cam-area").classList.remove("hide");
-    applyDrape();
-    speakInto($("bubble"), "ooh. let's see what these colours say about you. take your time.");
-  } catch (e) {
-    $("setup-err").textContent = "Camera unavailable. Try uploading a photo or the questionnaire.";
-  }
-}
-
-$("start-cam").onclick = startCamera;
-
-$("use-photo").onclick = () => $("photo-input").click();
-$("photo-input").onchange = (e) => {
-  const f = e.target.files[0]; if (!f) return;
-  $("setup").classList.add("hide");
-  $("photo-area").classList.remove("hide");
-  $("photo-preview").src = URL.createObjectURL(f);
-  renderSwatches($("photo-swatches"));
-};
-
-$("use-manual").onclick = () => {
-  $("setup").classList.add("hide");
-  $("manual-area").classList.remove("hide");
-};
-
-$("next-drape").onclick = () => {
-  const d = $("drape");
-  d.classList.add("peeling");
-  setTimeout(() => {
-    drapeIdx = (drapeIdx + 1) % DRAPES.length;
-    d.classList.remove("peeling");
-    applyDrape();
-  }, 500);
-};
-
-async function finishFrom(undertone, hair, eyes, source) {
-  const season = guessSeason({ undertone, hair, eyes });
-  const p = SEASONS[season];
-  await fetch("/api/analyses/colour", {
-    method:"POST", headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({ season, source, undertone, hair, eyes, confidence: source === "camera" ? "low" : "medium" }),
-  });
-  showResult(season, p);
-}
-
-function showResult(season, p) {
-  ["cam-area","photo-area","manual-area","setup"].forEach(id => $(id).classList.add("hide"));
-  $("results").classList.remove("hide");
-  $("res-title").textContent = `Your estimated palette: ${season}`;
-  $("res-desc").textContent = p.desc;
-  const fill = (el, arr) => { el.innerHTML = ""; arr.forEach(c => { const d = document.createElement("div"); d.className = "p"; d.style.background = c; el.appendChild(d); }); };
-  fill($("res-palette"), p.colours);
-  fill($("res-neutral"), p.neutral);
-  fill($("res-accent"), p.accent);
-  $("res-jewel").textContent = `Likely flattering: ${p.jewel}`;
-  $("res-note").textContent = "This is an estimate, not a measurement. Lighting and camera quality strongly affect results — feel free to retake in different conditions.";
-}
-
-$("finish-btn").onclick = () => {
-  // infer a rough undertone from what the user kept looking at
-  const guessWarm = drapeSignals.filter(x => x === "warm").length > 2;
-  finishFrom(guessWarm ? "warm" : "neutral", "medium", "brown", "camera");
-};
-$("photo-finish").onclick = () => finishFrom("neutral", "medium", "brown", "photo");
-$("manual-finish").onclick = () =>
-  finishFrom($("m-undertone").value, $("m-hair").value, $("m-eyes").value, "manual");
-
-$("retake").onclick = () => {
-  $("results").classList.add("hide");
-  $("setup").classList.remove("hide");
-  if (camStream) { camStream.getTracks().forEach(t => t.stop()); camStream = null; }
-};
-
-// load existing result
-const saved = await (await fetch("/api/analyses/colour")).json();
-if (saved && saved.data?.season && SEASONS[saved.data.season]) {
-  showResult(saved.data.season, SEASONS[saved.data.season]);
-  speakInto($("bubble"), "you've done this before — here's what we found.");
-}
-</script>
-</body>
-</html>
+  <div id="manual-area" class="hide card"
