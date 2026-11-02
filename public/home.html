@@ -33,7 +33,6 @@
   }
   .checklist-item.done .label { text-decoration:line-through; opacity:.55; }
   .checklist-item .label { flex:1; }
-  .checklist-item .ok-btn { padding:4px 10px; font-size:.8rem; }
   .checklist-item .rm-btn {
     background:transparent; border:none; color:var(--brown); cursor:pointer;
     font-size:1.1rem; padding:0 4px;
@@ -61,7 +60,7 @@
 
   <div class="card" style="margin-top:12px">
     <h2>To Bring 🎒</h2>
-    <p style="font-size:.9rem;opacity:.8">Things Jumino thinks you might want. Long-press the list to add your own, or use the button below.</p>
+    <p style="font-size:.9rem;opacity:.8">Things Jumino thinks you might want. Long-press the list to focus the input, or just use the button below.</p>
     <div id="checklist"></div>
     <div class="add-row">
       <input id="new-item" placeholder="add an item…" />
@@ -75,11 +74,12 @@
 import { requireUser, navbar } from "/js/shared.js";
 import { mountDonkey, speakInto } from "/js/donkey.js";
 
+const $ = (id) => document.getElementById(id);
 const me = await requireUser();
-document.getElementById("topbar").innerHTML = navbar(me);
-document.getElementById("welcome").textContent = `Welcome, ${me.username} 🌿`;
-mountDonkey(document.getElementById("donkey"), "idle", 150);
-speakInto(document.getElementById("bubble"), `hello ${me.username}. where shall we go today?`);
+$("topbar").innerHTML = navbar(me);
+$("welcome").textContent = `Welcome, ${me.username} 🌿`;
+mountDonkey($("donkey"), "idle", 150);
+speakInto($("bubble"), `hello ${me.username}. where shall we go today?`);
 
 const navItems = [
   { href:"/colour.html",  emoji:"🎨", label:"Colour Analysis" },
@@ -88,22 +88,25 @@ const navItems = [
   { href:"/wardrobe.html",emoji:"👗", label:"Wardrobe" },
   { href:"/profile.html", emoji:"👤", label:"Profile" },
 ];
-const grid = document.getElementById("nav-grid");
+const grid = $("nav-grid");
 for (const n of navItems) {
   const a = document.createElement("a");
   a.className = "nav-btn";
   a.href = n.href;
   if (n.label === "Profile" && me.avatar) {
-    a.innerHTML = `<img class="profile-pic" src="${me.avatar}" alt="profile"/>${n.label}`;
+    a.innerHTML = `<img class="profile-pic" src="${me.avatar}" alt="profile" /><span>${n.label}</span>`;
   } else {
-    a.innerHTML = `<span class="emoji">${n.emoji}</span>${n.label}`;
+    a.innerHTML = `<span class="emoji">${n.emoji}</span><span>${n.label}</span>`;
   }
   grid.appendChild(a);
 }
 
 // ---------- Checklist ----------
-const $ = (id) => document.getElementById(id);
 const listEl = $("checklist");
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
 
 async function loadChecklist() {
   const r = await fetch("/api/checklist");
@@ -113,7 +116,6 @@ async function loadChecklist() {
     listEl.innerHTML = `<p style="opacity:.6;font-style:italic">nothing here yet… jumino suggests a water bottle.</p>`;
     return;
   }
-  // done items at bottom, preserve order otherwise
   items.sort((a,b) => (a.done - b.done) || (b.id - a.id));
   for (const it of items) {
     const div = document.createElement("div");
@@ -142,8 +144,6 @@ async function loadChecklist() {
   });
 }
 
-function escapeHtml(s){ return s.replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
-
 async function addItem(label) {
   $("check-err").textContent = "";
   if (!label.trim()) return;
@@ -160,7 +160,7 @@ async function addItem(label) {
 $("add-btn").onclick = () => addItem($("new-item").value);
 $("new-item").addEventListener("keydown", (e) => { if (e.key === "Enter") addItem($("new-item").value); });
 
-// long-press the checklist to focus the add input
+// long-press focuses the add input (accessible alternative: the Add Item button)
 let lpTimer;
 listEl.addEventListener("pointerdown", () => {
   lpTimer = setTimeout(() => { $("new-item").focus(); }, 600);
