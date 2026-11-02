@@ -5,38 +5,147 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Yumori · Welcome</title>
 <link rel="stylesheet" href="/css/style.css" />
+<style>
+  .auth-layout {
+    display: flex;
+    gap: 24px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-top: 24px;
+  }
+  .auth-layout > .donkey-col {
+    flex: 1 1 240px;
+    text-align: center;
+  }
+  .auth-layout > .form-col {
+    flex: 1 1 320px;
+  }
+  .auth-card {
+    background: var(--paper);
+    border: 2px dashed rgba(138,106,82,.35);
+    border-radius: 22px;
+    padding: 24px;
+    box-shadow: var(--shadow);
+    position: relative;
+  }
+  .auth-card::before {
+    content: "";
+    position: absolute;
+    top: -10px;
+    right: 18px;
+    width: 34px;
+    height: 34px;
+    background: var(--mint);
+    border-radius: 50% 50% 50% 0;
+    transform: rotate(-15deg);
+    box-shadow: var(--shadow);
+  }
+  .auth-card h2 {
+    text-align: center;
+    margin-bottom: 14px;
+  }
+  .auth-card label {
+    display: block;
+    margin-top: 12px;
+    font-weight: 600;
+    font-size: .9rem;
+  }
+  .auth-card input {
+    margin-top: 4px;
+  }
+  .auth-card .btn-main {
+    width: 100%;
+    margin-top: 16px;
+    padding: 12px;
+    font-size: 1rem;
+  }
+  .auth-card .switch-line {
+    text-align: center;
+    font-size: .85rem;
+    margin-top: 14px;
+  }
+  .auth-card .switch-line a {
+    color: var(--brown-dark);
+    font-weight: 600;
+  }
+  .err {
+    color: #b04;
+    font-size: .85rem;
+    min-height: 1.2em;
+    margin-top: 8px;
+  }
+  .avatar-preview {
+    max-width: 110px;
+    border-radius: 16px;
+    border: 2px solid var(--mint-dark);
+    display: none;
+    margin-top: 10px;
+  }
+  .brand-title {
+    text-align: center;
+    margin-bottom: 6px;
+  }
+  .brand-title h1 {
+    font-size: 2.8rem;
+    letter-spacing: 1px;
+  }
+  .brand-title p {
+    opacity: .8;
+    font-size: .95rem;
+    margin: 0;
+  }
+  .hide { display: none !important; }
+</style>
 </head>
 <body>
-<div class="container">
-  <div class="row" style="align-items:center">
-    <div style="text-align:center">
+<div class="container" style="max-width:900px">
+  <div class="brand-title">
+    <h1>Yumori 🌿</h1>
+    <p>your little personal styling diary</p>
+  </div>
+
+  <div class="auth-layout">
+    <!-- DONKEY + BUBBLE -->
+    <div class="donkey-col">
       <div id="donkey"></div>
-      <div class="bubble" id="bubble" style="margin: 0 auto">
+      <div class="bubble" id="bubble" style="margin: 10px auto 0; max-width: 280px">
         oh… hello. i'm jumino. shall we begin?
       </div>
     </div>
 
-    <div>
-      <div class="card">
+    <!-- FORM -->
+    <div class="form-col">
+      <div class="auth-card">
         <h2 id="title">Sign up 🌿</h2>
+
+        <!-- SIGNUP -->
         <div id="signup-form">
-          <label>Username <input id="su-user" autocomplete="username" /></label>
-          <label>Password <input id="su-pass" type="password" autocomplete="new-password" /></label>
-          <label>Profile picture
+          <label>Username
+            <input id="su-user" autocomplete="username" placeholder="e.g. soft_moss" />
+          </label>
+          <label>Password
+            <input id="su-pass" type="password" autocomplete="new-password" placeholder="6+ characters" />
+          </label>
+          <label>Profile picture (optional)
             <input id="su-avatar" type="file" accept="image/*" capture="user" />
           </label>
-          <img id="avatar-preview" style="max-width:120px;border-radius:16px;display:none;margin-top:8px" />
-          <button id="su-btn" style="margin-top:12px">Create Account</button>
-          <p>Already have one? <a href="#" id="to-login">Log in</a></p>
-          <p id="su-err" style="color:#b04"></p>
+          <img id="avatar-preview" class="avatar-preview" alt="preview" />
+          <button class="btn-main" id="su-btn">Create Account</button>
+          <p class="err" id="su-err"></p>
+          <p class="switch-line">Already have one? <a href="#" id="to-login">Log in</a></p>
         </div>
 
-        <div id="login-form" style="display:none">
-          <label>Username <input id="li-user" autocomplete="username" /></label>
-          <label>Password <input id="li-pass" type="password" autocomplete="current-password" /></label>
-          <button id="li-btn" style="margin-top:12px">Log in</button>
-          <p>New here? <a href="#" id="to-signup">Sign up</a></p>
-          <p id="li-err" style="color:#b04"></p>
+        <!-- LOGIN -->
+        <div id="login-form" class="hide">
+          <label>Username
+            <input id="li-user" autocomplete="username" placeholder="your username" />
+          </label>
+          <label>Password
+            <input id="li-pass" type="password" autocomplete="current-password" placeholder="your password" />
+          </label>
+          <button class="btn-main" id="li-btn">Log in</button>
+          <p class="err" id="li-err"></p>
+          <p class="switch-line">New here? <a href="#" id="to-signup">Sign up</a></p>
         </div>
       </div>
     </div>
@@ -45,45 +154,129 @@
 
 <script type="module">
 import { mountDonkey, speakInto } from "/js/donkey.js";
-mountDonkey(document.getElementById("donkey"), "idle", 160);
-speakInto(document.getElementById("bubble"), "oh… hello. i'm jumino. shall we begin?");
 
 const $ = (id) => document.getElementById(id);
+
+// Mount the donkey and greet
+mountDonkey($("donkey"), "idle", 170);
+speakInto($("bubble"), "oh… hello. i'm jumino. shall we begin?");
+
+// ---------- avatar preview ----------
 $("su-avatar").addEventListener("change", (e) => {
-  const f = e.target.files[0]; if (!f) return;
+  const f = e.target.files[0];
+  if (!f) return;
   $("avatar-preview").src = URL.createObjectURL(f);
   $("avatar-preview").style.display = "block";
 });
 
-$("to-login").onclick = (e) => { e.preventDefault(); $("signup-form").style.display="none"; $("login-form").style.display="block"; $("title").textContent="Welcome back 🌸"; };
-$("to-signup").onclick = (e) => { e.preventDefault(); $("signup-form").style.display="block"; $("login-form").style.display="none"; $("title").textContent="Sign up 🌿"; };
+// ---------- form switching ----------
+$("to-login").onclick = (e) => {
+  e.preventDefault();
+  $("signup-form").classList.add("hide");
+  $("login-form").classList.remove("hide");
+  $("title").textContent = "Welcome back 🌸";
+  speakInto($("bubble"), "ah… you've been here before. lovely.");
+};
 
+$("to-signup").onclick = (e) => {
+  e.preventDefault();
+  $("login-form").classList.add("hide");
+  $("signup-form").classList.remove("hide");
+  $("title").textContent = "Sign up 🌿";
+  speakInto($("bubble"), "let's make you a little diary.");
+};
+
+// ---------- signup ----------
 $("su-btn").onclick = async () => {
   $("su-err").textContent = "";
-  const r = await fetch("/api/signup", {
-    method:"POST", headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({ username: $("su-user").value, password: $("su-pass").value })
-  });
-  const j = await r.json();
-  if (!r.ok) return ($("su-err").textContent = j.error);
-  const file = $("su-avatar").files[0];
-  if (file) {
-    const fd = new FormData(); fd.append("avatar", file);
-    await fetch("/api/me/avatar", { method:"POST", body: fd });
+  const username = $("su-user").value.trim();
+  const password = $("su-pass").value;
+
+  if (!username) return ($("su-err").textContent = "Please pick a username.");
+  if (username.length < 3 || !/^[a-zA-Z0-9_]+$/.test(username))
+    return ($("su-err").textContent = "Username must be 3+ letters/numbers/_.");
+  if (!password || password.length < 6)
+    return ($("su-err").textContent = "Password must be 6+ characters.");
+
+  const btn = $("su-btn");
+  btn.disabled = true;
+  btn.textContent = "creating…";
+
+  try {
+    const r = await fetch("/api/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      $("su-err").textContent = j.error || "Couldn't create account.";
+      btn.disabled = false;
+      btn.textContent = "Create Account";
+      return;
+    }
+
+    // upload avatar if provided
+    const file = $("su-avatar").files[0];
+    if (file) {
+      const fd = new FormData();
+      fd.append("avatar", file);
+      try {
+        await fetch("/api/me/avatar", { method: "POST", body: fd });
+      } catch {
+        /* avatar upload failure shouldn't block signup */
+      }
+    }
+
+    speakInto($("bubble"), "welcome to yumori. let's go home.");
+    setTimeout(() => (location.href = "/home.html"), 500);
+  } catch {
+    $("su-err").textContent = "Network hiccup. Try again?";
+    btn.disabled = false;
+    btn.textContent = "Create Account";
   }
-  location.href = "/home.html";
 };
 
+// ---------- login ----------
 $("li-btn").onclick = async () => {
   $("li-err").textContent = "";
-  const r = await fetch("/api/login", {
-    method:"POST", headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({ username: $("li-user").value, password: $("li-pass").value })
-  });
-  const j = await r.json();
-  if (!r.ok) return ($("li-err").textContent = j.error);
-  location.href = "/home.html";
+  const username = $("li-user").value.trim();
+  const password = $("li-pass").value;
+
+  if (!username || !password)
+    return ($("li-err").textContent = "Fill in both fields.");
+
+  const btn = $("li-btn");
+  btn.disabled = true;
+  btn.textContent = "logging in…";
+
+  try {
+    const r = await fetch("/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      $("li-err").textContent = j.error || "Couldn't log in.";
+      btn.disabled = false;
+      btn.textContent = "Log in";
+      return;
+    }
+    speakInto($("bubble"), "there you are. welcome home.");
+    setTimeout(() => (location.href = "/home.html"), 500);
+  } catch {
+    $("li-err").textContent = "Network hiccup. Try again?";
+    btn.disabled = false;
+    btn.textContent = "Log in";
+  }
 };
+
+// ---------- enter key submits ----------
+$("su-user").addEventListener("keydown", (e) => e.key === "Enter" && $("su-pass").focus());
+$("su-pass").addEventListener("keydown", (e) => e.key === "Enter" && $("su-btn").click());
+$("li-user").addEventListener("keydown", (e) => e.key === "Enter" && $("li-pass").focus());
+$("li-pass").addEventListener("keydown", (e) => e.key === "Enter" && $("li-btn").click());
 </script>
 </body>
 </html>
