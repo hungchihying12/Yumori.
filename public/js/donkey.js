@@ -55,6 +55,7 @@ export function mountDonkey(el, mood = "idle", size = 140) {
 }
 
 export function speakInto(el, text, { speed = 18 } = {}) {
+  if (!el) return Promise.resolve();
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
     el.textContent = text;
     return Promise.resolve();
