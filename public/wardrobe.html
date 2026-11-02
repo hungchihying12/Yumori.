@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Yumori · Wardrobe</title>
+<link rel="stylesheet" href="/css/style.css" />
+<style>
+  .wardrobe-hall { display:flex; justify-content:center; align-items:center; flex-direction:column; gap:18px; margin-top:20px; }
+  .wardrobe-cabinet {
+    width: min(340px, 90vw); height: 420px; position:relative;
+    background: var(--brown);
+    border-radius: 18px 18px 8px 8px;
+    box-shadow: var(--shadow);
+    perspective: 1200px;
+    cursor: pointer;
+    transition: transform .2s ease;
+  }
+  .wardrobe-cabinet:hover { transform: translateY(-3px); }
+  .wardrobe-cabinet::before {
+    content:""; position:absolute; top:-16px; left:50%; transform:translateX(-50%);
+    width: 60%; height: 18px; background: var(--brown-dark);
+    border-radius: 8px 8px 0 0;
+  }
+  .wardrobe-door {
+    position:absolute; top:0; bottom:0; width:50%;
+    background: linear-gradient(180deg, #a6826a, #7a5a44);
+    border: 3px solid var(--brown-dark);
+    transition: transform .9s cubic-bezier(.2,.9,.3,1.3);
+    box-shadow: inset 0 0 0 6px rgba(191,227,208,.35);
+  }
+  .wardrobe-door.left  { left:0;  border-radius: 18px 0 0 8px; transform-origin: left center; }
+  .wardrobe-door.right { right:0; border-radius: 0 18px 8px 0; transform-origin: right center; }
+  .wardrobe-cabinet.open .wardrobe-door.left  { transform: rotateY(-105deg); }
+  .wardrobe-cabinet.open .wardrobe-door.right { transform: rotateY(105deg); }
+  .wardrobe-door::after {
+    content:""; position:absolute; top:50%; width:10px; height:10px;
+    background: var(--mint); border-radius:50%;
+    box-shadow: 0 0 0 3px var(--brown-dark);
+  }
+  .wardrobe-door.left::after  { right: 8px; }
+  .wardrobe-door.right::after { left: 8px; }
+  .wardrobe-prompt {
+    text-align:center; font-family:"Caveat",cursive; font-size:1.4rem;
+    color: var(--brown-dark);
+  }
+
+  .cat-grid {
+    display:grid; grid-template-columns:repeat(auto-fill, minmax(140px,1fr));
+    gap:14px; margin-top:20px;
+  }
+  .cat-tile {
+    background: var(--paper); border:2px dashed rgba(138,106,82,.4);
+    border-radius:18px; padding:18px 12px; text-align:center;
+    cursor:pointer; font-weight:600; box-shadow:var(--shadow);
+    transition: transform .15s ease, background .2s;
+  }
+  .cat-tile:hover { transform: translateY(-3px) rotate(-1deg); background:#fffdf7; }
+  .cat-tile .emoji { font-size:1.8rem; display:block; margin-bottom:6px; }
+  .outfits-cta {
+    grid-column: 1 / -1;
+    background: linear-gradient(135deg, var(--mint), var(--mint-dark));
+    border: 2px solid var(--brown);
+    border-radius: 20px; padding: 22px; text-align:center;
+    font-family:"Caveat",cursive; font-size:1.6rem; font-weight:600;
+    color: var(--brown-dark); cursor:pointer;
+    box-shadow: var(--shadow);
+    transition: transform .15s ease;
+  }
+  .outfits-cta:hover { transform: translateY(-3px) scale(1.01); }
+
+  .collection-head { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
+  .filters { display:flex; gap:8px; flex-wrap:wrap; margin:12px 0; }
+  .filters select, .filters input { width:auto; padding:8px 12px; }
+  .filters button { padding:8px 14px; font-size:.85rem; }
+
+  .item-card {
+    background: var(--paper); border:2px solid rgba(138,106,82,.25);
+    border-radius:16px; overflow:hidden; text-align:center;
+    padding-bottom:10px; position:relative;
+  }
+  .item-card img { width:100%; height:160px; object-fit:cover; display:block; }
+  .item-card .name { font-weight:600; font-size:.9rem; margin:8px 6px 2px; }
+  .item-card .sub { font-size:.75rem; opacity:.7; }
+  .item-card .edit-del { display:flex; gap:6px; justify-content:center; margin-top:8px; }
+  .item-card .edit-del button { padding:4px 10px; font-size:.75rem; }
+  .item-card .edit-del .del { background:#f5c4c4; }
+  .item-card .del:hover { background:#e89b9b; }
+  .empty { text-align:center; padding:32px 12px; opacity:.7; font-style:italic; }
+
+  .modal-bg {
+    position:fixed; inset:0; background:rgba(74,59,50,.4);
+    display:none; align-items:center; justify-content:center; z-index:80;
+    padding:20px;
+  }
+  .modal-bg.show { display:flex; }
+  .modal {
+    background: var(--cream); border:2px dashed var(--brown);
+    border-radius:22px; padding:24px; max-width:420px; width:100%;
+    box-shadow: var(--shadow); max-height:90vh; overflow-y:auto;
+  }
+  .modal h3 { margin-top:0; }
+  .modal label { display:block; margin-top:10px; font-weight:600; font-size:.9rem; }
+  .modal input, .modal select { margin-top:4px; }
+  .modal .preview { max-width:100%; border-radius:12px; margin-top:10px; display:none; }
+  .modal-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:16px; }
+</style>
+</head>
+<body>
+<nav class="topbar" id="topbar"></nav>
+<div class="container">
+
+  <!-- WARDROBE ENTRANCE -->
+  <div id="entrance">
+    <h1>Your Wardrobe 👗</h1>
+    <div class="wardrobe-hall">
+      <div class="wardrobe-cabinet" id="cabinet">
+        <div class="wardrobe-door left"></div>
+        <div class="wardrobe-door right"></div>
+      </div>
+      <p class="wardrobe-prompt" id="prompt">tap the wardrobe to open</p>
+      <button id="edit-cabinet" style="font-size:.85rem">🎨 Edit wardrobe colour</button>
+    </div>
+    <div id="cabinet-colour" style="display:none; margin-top:16px; text-align:center">
+      <label style="font-weight:600">Exterior colour: </label>
+      <input type="color" id="cab-colour" value="#8a6a52" />
+      <button id="save-cab" style="margin-left:8px">Save</button>
+    </div>
+  </div>
+
+  <!-- CATEGORIES -->
+  <div id="categories" style="display:none">
+    <h1>Inside the wardrobe</h1>
+    <div class="donkey-line" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+      <div id="donkey"></div>
+      <div class="bubble" id="bubble">pick a drawer…</div>
+    </div>
+    <div class="cat-grid" id="cat-grid"></div>
+  </div>
+
+  <!-- COLLECTION -->
+  <div id="collection" style="display:none">
+    <div class="collection-head">
+      <h1 id="col-title">Collection</h1>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button id="add-cam">📷 Photo</button>
+        <button id="add-up">🖼 Upload</button>
+        <button id="back-cats">← Categories</button>
+      </div>
+    </div>
+    <input type="file" id="cam-input" accept="image/*" capture="environment" hidden />
+    <input type="file" id="up-input" accept="image/*" hidden />
+    <div class="filters">
+      <select id="filter-sub"><option value="">All subcategories</option></select>
+      <input id="search" placeholder="search name…" />
+      <select id="sort">
+        <option value="new">Newest first</option>
+        <option value="old">Oldest first</option>
+        <option value="az">Name A–Z</option>
+      </select>
+    </div>
+    <div class="grid" id="items-grid"></div>
+    <p id="col-msg" style="color:#b04;min-height:1em"></p>
+  </div>
+</div>
+
+<!-- ADD MODAL -->
+<div class="modal-bg" id="add-modal">
+  <div class="modal">
+    <h3>Add clothing</h3>
+    <img id="add-preview" class="preview" />
+    <label>Name (optional)
+      <input id="add-name" placeholder="e.g. sage linen shirt" />
+    </label>
+    <label>Category
+      <select id="add-category"></select>
+    </label>
+    <label>Subcategory
+      <select id="add-sub"></select>
+    </label>
+    <p id="add-err" style="color:#b04;min-height:1em"></p>
+    <div class="modal-actions">
+      <button id="add-cancel" style="background:#f0e0d0">Cancel</button>
+      <button id="add-save">Save 💾</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="modal-bg" id="edit-modal">
+  <div class="modal">
+    <h3>Edit item</h3>
+    <img id="edit-preview" class="preview" />
+    <label>Name
+      <input id="edit-name" />
+    </label>
+    <label>Category
+      <select id="edit-category"></select>
+    </label>
+    <label>Subcategory
+      <select id="edit-sub"></select>
+    </label>
+    <p id="edit-err" style="color:#b04;min-height:1em"></p>
+    <div class="modal-actions">
+      <button id="edit-cancel" style="background:#f0e0d0">Cancel</button>
+      <button id="edit-save">Save 💾</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { requireUser, navbar } from "/js/shared.js";
+import { mountDonkey, speakInto } from "/js/donkey.js";
+
+const me = await requireUser();
+document.getElementById("topbar").innerHTML = navbar(me);
+const $ = (id) => document.getElementById(id);
+mountDonkey($("donkey"), "idle", 110);
+speakInto($("bubble"), "which drawer today?");
+
+// ---------- categories & subcategories ----------
+const CATEGORIES = {
+  "Accessories": ["Bags","Jewellery","Belts","Hats","Scarves","Other accessories"],
+  "Skirts": ["Mini skirts","Midi skirts","Maxi skirts"],
+  "Long Pants": ["Jeans","Trousers","Other long pants"],
+  "Short Pants": ["Shorts","Cropped pants"],
+  "Jackets": ["Blazers","Coats","Light jackets","Other outerwear"],
+  "Tops": ["T-shirts","Blouses","Shirts","Knitwear","Other tops"],
+  "Dresses": ["Mini dresses","Midi dresses","Maxi dresses","Other dresses"],
+};
+const EMOJI = { Accessories:"🎀", Skirts:"🌷", "Long Pants":"👖", "Short Pants":"🩳",
+                Jackets:"🧥", Tops:"👚", Dresses:"👗" };
+
+// ---------- state ----------
+let currentCat = null;
+let allItems = [];
+
+// ---------- entrance ----------
+$("cabinet").onclick = () => {
+  if ($("cabinet").classList.contains("open")) return;
+  $("cabinet").classList.add("open");
+  $("prompt").textContent = "creak… open!";
+  setTimeout(() => {
+    $("entrance").style.display = "none";
+    $("categories").style.display = "block";
+  }, 900);
+};
+
+$("edit-cabinet").onclick = (e) => {
+  e.stopPropagation();
+  const box = $("cabinet-colour");
+  box.style.display = box.style.display === "none" ? "block" : "none";
+  $("cab-colour").value = localStorage.getItem("cab-colour") || "#8a6a52";
+};
+$("save-cab").onclick = () => {
+  const c = $("cab-colour").value;
+  localStorage.setItem("cab-colour", c);
+  document.documentElement.style.setProperty("--brown", c);
+  $("cabinet-colour").style.display = "none";
+};
+// apply saved colour immediately
+(function(){
+  const c = localStorage.getItem("cab-colour");
+  if (c) {
+    document.documentElement.style.setProperty("--brown", c);
+    $("cab-colour").value = c;
+  }
+})();
+
+// ---------- category grid ----------
+const grid = $("cat-grid");
+Object.keys(CATEGORIES).forEach(cat => {
+  const d = document.createElement("div");
+  d.className = "cat-tile";
+  d.innerHTML = `<span class="emoji">${EMOJI[cat]}</span>${cat}`;
+  d.onclick = () => openCollection(cat);
+  grid.appendChild(d);
+});
+const outfitsCta = document.createElement("div");
+outfitsCta.className = "outfits-cta";
+outfitsCta.textContent = "✨ Outfits — ask Jumino";
+outfitsCta.onclick = () => location.href = "/outfits.html";
+grid.appendChild(outfitsCta);
+
+function populateSelect(sel, cats, subs, selectedCat, selectedSub) {
+  sel.innerHTML = "";
+  for (const c of cats) {
+    const o = document.createElement("option");
+    o.value = c; o.textContent = c;
+    if (c === selectedCat) o.selected = true;
+    sel.appendChild(o);
+  }
+  sel.onchange = () => {
+    subs.innerHTML = "";
+    for (const s of cats === Object.keys(CATEGORIES) ? CATEGORIES[sel.value] : CATEGORIES[sel.value]) {
+      const o = document.createElement("option");
+      o.value = s; o.textContent = s;
+      if (s === selectedSub) o.selected = true;
+      subs.appendChild(o);
+    }
+  };
+  subs.innerHTML = "";
+  for (const s of CATEGORIES[sel.value] || []) {
+    const o = document.createElement("option");
+    o.value = s; o.textContent = s;
+    if (s === selectedSub) o.selected = true;
+    subs.appendChild(o);
+  }
+}
+
+// ---------- collection view ----------
+async function openCollection(cat) {
+  currentCat = cat;
+  $("categories").style.display = "none";
+  $("collection").style.display = "block";
+  $("col-title").textContent = `${EMOJI[cat]} ${cat}`;
+  // filters
+  const subSel = $("filter-sub");
+  subSel.innerHTML = `<option value="">All subcategories</option>`;
+  for (const s of CATEGORIES[cat]) {
+    const o = document.createElement("option"); o.value = s; o.textContent = s;
+    subSel.appendChild(o);
+  }
+  await loadItems();
+}
+
+$("back-cats").onclick = () => {
+  $("collection").style.display = "none";
+  $("categories").style.display = "block";
+};
+
+async function loadItems() {
+  $("col-msg").textContent = "";
+  const r = await fetch(`/api/wardrobe?category=${encodeURIComponent(currentCat)}`);
+  allItems = await r.json();
+  renderItems();
+}
+
+function renderItems() {
+  const gridEl = $("items-grid");
+  const filterSub = $("filter-sub").value;
+  const q = $("search").value.trim().toLowerCase();
+  const sort = $("sort").value;
+  let list = allItems.slice();
+  if (filterSub) list = list.filter(i => i.subcategory === filterSub);
+  if (q) list = list.filter(i => (i.name || "").toLowerCase().includes(q));
+  if (sort === "az") list.sort((a,b) => (a.name||"").localeCompare(b.name||""));
+  else if (sort === "old") list.sort((a,b) => a.id - b.id);
+  else list.sort((a,b) => b.id - a.id);
+
+  if (!list.length) {
+    gridEl.innerHTML = `<div class="empty" style="grid-column:1/-1">
+      nothing in here yet… jumino will wait while you photograph something.
+    </div>`;
+    return;
+  }
+  gridEl.innerHTML = "";
+  for (const it of list) {
+    const card = document.createElement("div");
+    card.className = "item-card";
+    card.innerHTML = `
+      <img src="${it.image_path}" alt="${it.name || 'item'}" />
+      <div class="name">${escapeHtml(it.name || "(no name)")}</div>
+      <div class="sub">${escapeHtml(it.subcategory || "")}</div>
+      <div class="edit-del">
+        <button class="edit">Edit</button>
+        <button class="del">Delete</button>
+      </div>
+    `;
+    card.querySelector(".edit").onclick = () => openEdit(it);
+    card.querySelector(".del").onclick = async () => {
+      if (!confirm("Delete this item?")) return;
+      await fetch(`/api/wardrobe/${it.id}`, { method:"DELETE" });
+      loadItems();
+    };
+    gridEl.appendChild(card);
+  }
+}
+
+$("filter-sub").onchange = renderItems;
+$("search").oninput = renderItems;
+$("sort").onchange = renderItems;
+
+// ---------- add flow ----------
+let pendingFile = null;
+$("add-cam").onclick = () => $("cam-input").click();
+$("add-up").onclick = () => $("up-input").click();
+[$("cam-input"), $("up-input")].forEach(inp => {
+  inp.onchange = (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    pendingFile = f;
+    $("add-preview").src = URL.createObjectURL(f);
+    $("add-preview").style.display = "block";
+    populateSelect($("add-category"), Object.keys(CATEGORIES), $("add-sub"), currentCat, CATEGORIES[currentCat][0]);
+    $("add-name").value = "";
+    $("add-err").textContent = "";
+    $("add-modal").classList.add("show");
+    e.target.value = "";
+  };
+});
+$("add-cancel").onclick = () => {
+  $("add-modal").classList.remove("show");
+  pendingFile = null;
+};
+$("add-save").onclick = async () => {
+  if (!pendingFile) return;
+  const fd = new FormData();
+  fd.append("photo", pendingFile);
+  fd.append("category", $("add-category").value);
+  fd.append("subcategory", $("add-sub").value);
+  fd.append("name", $("add-name").value);
+  const r = await fetch("/api/wardrobe", { method:"POST", body: fd });
+  const j = await r.json();
+  if (!r.ok) { $("add-err").textContent = j.error || "Failed."; return; }
+  $("add-modal").classList.remove("show");
+  pendingFile = null;
+  await loadItems();
+};
+
+// ---------- edit flow ----------
+let editingItem = null;
+function openEdit(it) {
+  editingItem = it;
+  $("edit-preview").src = it.image_path;
+  $("edit-preview").style.display = "block";
+  $("edit-name").value = it.name || "";
+  populateSelect($("edit-category"), Object.keys(CATEGORIES), $("edit-sub"), it.category, it.subcategory);
+  $("edit-err").textContent = "";
+  $("edit-modal").classList.add("show");
+}
+$("edit-cancel").onclick = () => { $("edit-modal").classList.remove("show"); editingItem = null; };
+$("edit-save").onclick = async () => {
+  if (!editingItem) return;
+  const r = await fetch(`/api/wardrobe/${editingItem.id}`, {
+    method:"PATCH", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({
+      name: $("edit-name").value,
+      category: $("edit-category").value,
+      subcategory: $("edit-sub").value,
+    }),
+  });
+  const j = await r.json();
+  if (!r.ok) { $("edit-err").textContent = j.error || "Failed."; return; }
+  $("edit-modal").classList.remove("show");
+  // if category changed, reload appropriately
+  if ($("edit-category").value !== currentCat) {
+    currentCat = $("edit-category").value;
+    $("col-title").textContent = `${EMOJI[currentCat]} ${currentCat}`;
+    const subSel = $("filter-sub");
+    subSel.innerHTML = `<option value="">All subcategories</option>`;
+    for (const s of CATEGORIES[currentCat]) {
+      const o = document.createElement("option"); o.value = s; o.textContent = s;
+      subSel.appendChild(o);
+    }
+  }
+  await loadItems();
+};
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+</script>
+</body>
+</html>
