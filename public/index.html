@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Yumori · Welcome</title>
+<link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+<div class="container">
+  <div class="row" style="align-items:center">
+    <div style="text-align:center">
+      <div id="donkey"></div>
+      <div class="bubble" id="bubble" style="margin: 0 auto">
+        oh… hello. i'm jumino. shall we begin?
+      </div>
+    </div>
+
+    <div>
+      <div class="card">
+        <h2 id="title">Sign up 🌿</h2>
+        <div id="signup-form">
+          <label>Username <input id="su-user" autocomplete="username" /></label>
+          <label>Password <input id="su-pass" type="password" autocomplete="new-password" /></label>
+          <label>Profile picture
+            <input id="su-avatar" type="file" accept="image/*" capture="user" />
+          </label>
+          <img id="avatar-preview" style="max-width:120px;border-radius:16px;display:none;margin-top:8px" />
+          <button id="su-btn" style="margin-top:12px">Create Account</button>
+          <p>Already have one? <a href="#" id="to-login">Log in</a></p>
+          <p id="su-err" style="color:#b04"></p>
+        </div>
+
+        <div id="login-form" style="display:none">
+          <label>Username <input id="li-user" autocomplete="username" /></label>
+          <label>Password <input id="li-pass" type="password" autocomplete="current-password" /></label>
+          <button id="li-btn" style="margin-top:12px">Log in</button>
+          <p>New here? <a href="#" id="to-signup">Sign up</a></p>
+          <p id="li-err" style="color:#b04"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { mountDonkey, speakInto } from "/js/donkey.js";
+mountDonkey(document.getElementById("donkey"), "idle", 160);
+speakInto(document.getElementById("bubble"), "oh… hello. i'm jumino. shall we begin?");
+
+const $ = (id) => document.getElementById(id);
+$("su-avatar").addEventListener("change", (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  $("avatar-preview").src = URL.createObjectURL(f);
+  $("avatar-preview").style.display = "block";
+});
+
+$("to-login").onclick = (e) => { e.preventDefault(); $("signup-form").style.display="none"; $("login-form").style.display="block"; $("title").textContent="Welcome back 🌸"; };
+$("to-signup").onclick = (e) => { e.preventDefault(); $("signup-form").style.display="block"; $("login-form").style.display="none"; $("title").textContent="Sign up 🌿"; };
+
+$("su-btn").onclick = async () => {
+  $("su-err").textContent = "";
+  const r = await fetch("/api/signup", {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({ username: $("su-user").value, password: $("su-pass").value })
+  });
+  const j = await r.json();
+  if (!r.ok) return ($("su-err").textContent = j.error);
+  const file = $("su-avatar").files[0];
+  if (file) {
+    const fd = new FormData(); fd.append("avatar", file);
+    await fetch("/api/me/avatar", { method:"POST", body: fd });
+  }
+  location.href = "/home.html";
+};
+
+$("li-btn").onclick = async () => {
+  $("li-err").textContent = "";
+  const r = await fetch("/api/login", {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({ username: $("li-user").value, password: $("li-pass").value })
+  });
+  const j = await r.json();
+  if (!r.ok) return ($("li-err").textContent = j.error);
+  location.href = "/home.html";
+};
+</script>
+</body>
+</html>
