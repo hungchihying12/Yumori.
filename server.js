@@ -32,11 +32,11 @@ const upload = multer({
   storage: multer.diskStorage({
     destination: uploadDir,
     filename: (req, file, cb) =>
-      cb(null, `${req.session.userId}-${Date.now()}${path.extname(file.originalname)}`),
+      cb(null, `${req.session.userId || "anon"}-${Date.now()}${path.extname(file.originalname)}`),
   }),
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) =>
-    cb(null, /image\/(png|jpeg|webp)/.test(file.mimetype)),
+    cb(null, /image\/(png|jpeg|webp|gif)/.test(file.mimetype)),
 });
 
 // ---- auth guard ----
@@ -94,6 +94,8 @@ app.patch("/api/me", auth, (req, res) => {
   const { country, username } = req.body;
   try {
     if (username && username !== req.session.username) {
+      if (username.length < 3 || !/^[a-zA-Z0-9_]+$/.test(username))
+        return res.status(400).json({ error: "Username must be 3+ letters/numbers/_." });
       db.prepare("UPDATE users SET username = ? WHERE id = ?").run(
         username,
         req.session.userId
@@ -125,6 +127,10 @@ app.patch("/api/me/password", auth, async (req, res) => {
 });
 
 app.delete("/api/me", auth, (req, res) => {
+  const rows = db.prepare("SELECT image_path FROM wardrobe_items WHERE user_id=?").all(req.session.userId);
+  for (const r of rows) { try { fs.unlinkSync("public" + r.image_path); } catch {} }
+  const u = db.prepare("SELECT avatar FROM users WHERE id=?").get(req.session.userId);
+  if (u?.avatar) { try { fs.unlinkSync("public" + u.avatar); } catch {} }
   db.prepare("DELETE FROM users WHERE id = ?").run(req.session.userId);
   req.session.destroy(() => res.json({ ok: true }));
 });
@@ -160,6 +166,7 @@ app.get("/api/wardrobe", auth, (req, res) => {
 app.post("/api/wardrobe", auth, upload.single("photo"), (req, res) => {
   const { category, subcategory, name } = req.body;
   if (!req.file) return res.status(400).json({ error: "Photo required." });
+  if (!category) return res.status(400).json({ error: "Category required." });
   const info = db
     .prepare(
       "INSERT INTO wardrobe_items (user_id, category, subcategory, name, image_path) VALUES (?,?,?,?,?)"
@@ -219,6 +226,14 @@ app.delete("/api/checklist/:id", auth, (req, res) => {
   res.json({ ok: true });
 });
 
+// ===================== OUTFITS HISTORY =====================
+app.get("/api/outfits", auth, (req, res) => {
+  const rows = db
+    .prepare("SELECT * FROM outfits WHERE user_id=? ORDER BY id DESC LIMIT 30")
+    .all(req.session.userId);
+  res.json(rows.map(r => ({ ...r, suggestion: JSON.parse(r.suggestion) })));
+});
+
 // ===================== AI OUTFIT CHAT =====================
 app.post("/api/outfits/chat", auth, async (req, res) => {
   if (!process.env.OPENAI_API_KEY)
@@ -234,7 +249,7 @@ app.post("/api/outfits/chat", auth, async (req, res) => {
   const colour = db
     .prepare("SELECT data FROM analyses WHERE user_id=? AND kind='colour' ORDER BY id DESC LIMIT 1")
     .get(req.session.userId);
-  const body = db
+  const bodyR = db
     .prepare("SELECT data FROM analyses WHERE user_id=? AND kind='body' ORDER BY id DESC LIMIT 1")
     .get(req.session.userId);
   const face = db
@@ -242,13 +257,14 @@ app.post("/api/outfits/chat", auth, async (req, res) => {
     .get(req.session.userId);
 
   const systemPrompt = `You are Jumino, a gentle, sleepy, dry-humoured donkey personal styling assistant for Yumori.
-Speak in short, cosy sentences. NEVER insult appearance. Suggest outfits ONLY from the wardrobe JSON provided.
+Speak in short, cosy sentences. NEVER insult appearance. Suggest outfits ONLY from the wardrobe JSON provided (use their id values).
+If the wardrobe is empty, say so gently and suggest adding items rather than inventing them.
 Return STRICT JSON: { "reply": "speech bubble text", "outfit": { "itemIds": [..], "why": ".." } | null, "essentials": ["umbrella", ...] }`;
 
   const userPayload = {
     wardrobe,
     colourPalette: colour ? JSON.parse(colour.data) : null,
-    bodyResult: body ? JSON.parse(body.data) : null,
+    bodyResult: bodyR ? JSON.parse(bodyR.data) : null,
     faceResult: face ? JSON.parse(face.data) : null,
     message,
   };
