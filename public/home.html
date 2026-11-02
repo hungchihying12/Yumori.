@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Yumori · Home</title>
+<link rel="stylesheet" href="/css/style.css" />
+<style>
+  .home-hero { display:flex; gap:20px; align-items:center; flex-wrap:wrap; }
+  .home-hero .bubble { flex:1 1 260px; }
+  .nav-grid {
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(150px,1fr));
+    gap:16px; margin:24px 0;
+  }
+  .nav-btn {
+    background:var(--paper); border:2px dashed rgba(138,106,82,.4);
+    border-radius:22px; padding:20px 12px; text-align:center;
+    cursor:pointer; text-decoration:none; color:var(--ink);
+    font-family:"Quicksand",sans-serif; font-weight:600;
+    box-shadow:var(--shadow); transition:transform .15s ease, background .2s;
+    display:flex; flex-direction:column; align-items:center; gap:8px;
+  }
+  .nav-btn:hover { transform:translateY(-4px) rotate(-1deg); background:#fffdf7; }
+  .nav-btn .emoji { font-size:2rem; line-height:1; }
+  .nav-btn .profile-pic {
+    width:56px;height:56px;border-radius:50%;object-fit:cover;
+    border:2px solid var(--mint-dark);
+  }
+  .checklist-item {
+    display:flex; align-items:center; gap:10px; padding:8px 0;
+    border-bottom:1px dotted rgba(138,106,82,.3);
+  }
+  .checklist-item.done .label { text-decoration:line-through; opacity:.55; }
+  .checklist-item .label { flex:1; }
+  .checklist-item .ok-btn { padding:4px 10px; font-size:.8rem; }
+  .checklist-item .rm-btn {
+    background:transparent; border:none; color:var(--brown); cursor:pointer;
+    font-size:1.1rem; padding:0 4px;
+  }
+  .add-row { display:flex; gap:8px; margin-top:12px; }
+  .add-row input { flex:1; }
+</style>
+</head>
+<body>
+<nav class="topbar" id="topbar"></nav>
+<div class="container">
+
+  <div class="home-hero">
+    <div style="text-align:center">
+      <div id="donkey"></div>
+      <div class="bubble" id="bubble" style="margin:0 auto">oh… you're here.</div>
+    </div>
+    <div style="flex:1 1 260px">
+      <h1 id="welcome">Welcome 🌿</h1>
+      <p>Pick a little doorway. Jumino will follow along.</p>
+    </div>
+  </div>
+
+  <div class="nav-grid" id="nav-grid"></div>
+
+  <div class="card" style="margin-top:12px">
+    <h2>To Bring 🎒</h2>
+    <p style="font-size:.9rem;opacity:.8">Things Jumino thinks you might want. Long-press the list to add your own, or use the button below.</p>
+    <div id="checklist"></div>
+    <div class="add-row">
+      <input id="new-item" placeholder="add an item…" />
+      <button id="add-btn">Add Item</button>
+    </div>
+    <p id="check-err" style="color:#b04;min-height:1em"></p>
+  </div>
+</div>
+
+<script type="module">
+import { requireUser, navbar } from "/js/shared.js";
+import { mountDonkey, speakInto } from "/js/donkey.js";
+
+const me = await requireUser();
+document.getElementById("topbar").innerHTML = navbar(me);
+document.getElementById("welcome").textContent = `Welcome, ${me.username} 🌿`;
+mountDonkey(document.getElementById("donkey"), "idle", 150);
+speakInto(document.getElementById("bubble"), `hello ${me.username}. where shall we go today?`);
+
+const navItems = [
+  { href:"/colour.html",  emoji:"🎨", label:"Colour Analysis" },
+  { href:"/body.html",    emoji:"🧵", label:"Body Analysis" },
+  { href:"/face.html",    emoji:"💇", label:"Face Analysis" },
+  { href:"/wardrobe.html",emoji:"👗", label:"Wardrobe" },
+  { href:"/profile.html", emoji:"👤", label:"Profile" },
+];
+const grid = document.getElementById("nav-grid");
+for (const n of navItems) {
+  const a = document.createElement("a");
+  a.className = "nav-btn";
+  a.href = n.href;
+  if (n.label === "Profile" && me.avatar) {
+    a.innerHTML = `<img class="profile-pic" src="${me.avatar}" alt="profile"/>${n.label}`;
+  } else {
+    a.innerHTML = `<span class="emoji">${n.emoji}</span>${n.label}`;
+  }
+  grid.appendChild(a);
+}
+
+// ---------- Checklist ----------
+const $ = (id) => document.getElementById(id);
+const listEl = $("checklist");
+
+async function loadChecklist() {
+  const r = await fetch("/api/checklist");
+  const items = await r.json();
+  listEl.innerHTML = "";
+  if (!items.length) {
+    listEl.innerHTML = `<p style="opacity:.6;font-style:italic">nothing here yet… jumino suggests a water bottle.</p>`;
+    return;
+  }
+  // done items at bottom, preserve order otherwise
+  items.sort((a,b) => (a.done - b.done) || (b.id - a.id));
+  for (const it of items) {
+    const div = document.createElement("div");
+    div.className = "checklist-item" + (it.done ? " done" : "");
+    div.innerHTML = `
+      <input type="checkbox" ${it.done ? "checked" : ""} data-id="${it.id}" />
+      <span class="label">${escapeHtml(it.label)}</span>
+      <button class="rm-btn" data-id="${it.id}" title="remove">✕</button>
+    `;
+    listEl.appendChild(div);
+  }
+  listEl.querySelectorAll("input[type=checkbox]").forEach(cb => {
+    cb.onchange = async () => {
+      await fetch(`/api/checklist/${cb.dataset.id}`, {
+        method:"PATCH", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ done: cb.checked }),
+      });
+      loadChecklist();
+    };
+  });
+  listEl.querySelectorAll(".rm-btn").forEach(b => {
+    b.onclick = async () => {
+      await fetch(`/api/checklist/${b.dataset.id}`, { method:"DELETE" });
+      loadChecklist();
+    };
+  });
+}
+
+function escapeHtml(s){ return s.replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+async function addItem(label) {
+  $("check-err").textContent = "";
+  if (!label.trim()) return;
+  const r = await fetch("/api/checklist", {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({ label }),
+  });
+  const j = await r.json();
+  if (!r.ok) { $("check-err").textContent = j.error || "Couldn't add."; return; }
+  $("new-item").value = "";
+  loadChecklist();
+}
+
+$("add-btn").onclick = () => addItem($("new-item").value);
+$("new-item").addEventListener("keydown", (e) => { if (e.key === "Enter") addItem($("new-item").value); });
+
+// long-press the checklist to focus the add input
+let lpTimer;
+listEl.addEventListener("pointerdown", () => {
+  lpTimer = setTimeout(() => { $("new-item").focus(); }, 600);
+});
+listEl.addEventListener("pointerup", () => clearTimeout(lpTimer));
+listEl.addEventListener("pointerleave", () => clearTimeout(lpTimer));
+
+loadChecklist();
+</script>
+</body>
+</html>
