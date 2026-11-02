@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Yumori · Body Analysis</title>
+<link rel="stylesheet" href="/css/style.css" />
+<style>
+  .apple {
+    width: min(90vw, 460px);
+    aspect-ratio: 1 / 1.1;
+    background: radial-gradient(circle at 40% 35%, #f7d4d9 0%, #e8a8b8 70%, #c88a9a 100%);
+    border-radius: 50% 50% 48% 48% / 55% 55% 45% 45%;
+    margin: 20px auto; position: relative;
+    box-shadow: var(--shadow), inset -20px -30px 60px rgba(140,80,100,.25);
+    padding: 26px 32px; box-sizing: border-box;
+  }
+  .apple::before {
+    content:""; position:absolute; top:-14px; left:50%; transform:translateX(-50%);
+    width:14px; height:24px; background:var(--brown); border-radius:6px;
+    box-shadow: 0 0 0 3px rgba(255,255,255,.3);
+  }
+  .apple label { font-size:.85rem; display:block; margin-top:10px; }
+  .apple input, .apple select { padding:8px 10px; border-radius:10px; font-size:.9rem; }
+  .apple h2 { text-align:center; }
+
+  .overlay {
+    position:fixed; inset:0; background:rgba(91,69,53,.35);
+    display:flex; align-items:center; justify-content:center; z-index:50;
+    padding:16px;
+  }
+  .overlay.hide { display:none; }
+  .envelope-big {
+    width:min(92vw, 480px); height:min(64vh, 340px);
+    background:var(--brown); border-radius:14px;
+    position:relative; box-shadow:0 20px 60px rgba(0,0,0,.35);
+    display:flex; align-items:center; justify-content:center;
+    overflow:hidden;
+  }
+  .envelope-big::before {
+    content:""; position:absolute; inset:10px;
+    background-image:radial-gradient(var(--mint) 2px, transparent 2px);
+    background-size:16px 16px; border-radius:8px;
+  }
+  .envelope-big .open-btn {
+    position:relative; z-index:2;
+    font-size:1.2rem; padding:12px 30px;
+  }
+  .envelope-big .slide-card {
+    position:absolute; left:50%; bottom:-100%;
+    transform:translateX(-50%);
+    width:90%; background:var(--paper); border-radius:14px;
+    padding:18px; transition:bottom .8s ease;
+    max-height:80%; overflow-y:auto;
+  }
+  .envelope-big.open .slide-card { bottom:6%; }
+  .envelope-big.open .open-btn { opacity:0; pointer-events:none; }
+
+  .donkey-walk { position:fixed; bottom:8vh; left:-140px; transition:left 1.2s ease; z-index:51; }
+  .donkey-walk.in { left:calc(50% - 70px); }
+
+  .tabs { display:flex; gap:8px; flex-wrap:wrap; margin:12px 0; }
+  .tabs button { padding:6px 12px; font-size:.82rem; }
+  .tabs button.active { background:var(--mint-dark); }
+  .hide { display:none !important; }
+</style>
+</head>
+<body>
+<nav class="topbar" id="topbar"></nav>
+<div class="container">
+  <h1>Body Analysis 🧵</h1>
+  <p style="opacity:.8">These are approximate styling tools — not health or beauty judgements. Jumino will gently help you experiment.</p>
+
+  <div class="apple">
+    <h2 style="margin-top:0">Tell me your measurements</h2>
+    <label>Unit
+      <select id="unit">
+        <option value="cm">cm</option>
+        <option value="in">inches</option>
+      </select>
+    </label>
+    <label>Bust <input id="bust" type="number" min="0" step="0.1" /></label>
+    <label>Waist <input id="waist" type="number" min="0" step="0.1" /></label>
+    <label>Hips <input id="hips" type="number" min="0" step="0.1" /></label>
+    <label>Shoulders <input id="shoulders" type="number" min="0" step="0.1" /></label>
+    <p id="m-err" style="color:#b04;font-size:.8rem;min-height:1em"></p>
+    <button id="continue-btn" style="width:100%;margin-top:8px">Continue</button>
+  </div>
+
+  <div class="card hide" id="result-card">
+    <h2 id="res-shape"></h2>
+    <p id="res-explain"></p>
+    <div class="tabs" id="tabs"></div>
+    <div id="tab-content"></div>
+    <button id="edit-btn" style="margin-top:16px">Edit measurements</button>
+  </div>
+</div>
+
+<!-- Envelope overlay -->
+<div class="overlay hide" id="overlay">
+  <div class="donkey-walk" id="donkey-walk"><div id="donkey-svg"></div></div>
+  <div class="envelope-big" id="envelope">
+    <button class="open-btn" id="open-btn">Open 💌</button>
+    <div class="slide-card" id="slide-card">
+      <h2 id="slide-shape"></h2>
+      <p id="slide-explain"></p>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { requireUser, navbar } from "/js/shared.js";
+import { mountDonkey, speakInto } from "/js/donkey.js";
+
+const me = await requireUser();
+document.getElementById("topbar").innerHTML = navbar(me);
+mountDonkey(document.getElementById("donkey-svg"), "present", 110);
+const $ = (id) => document.getElementById(id);
+
+// ---------- shape classification ----------
+function classify({ bust, waist, hips, shoulders }) {
+  const all = [bust, waist, hips, shoulders].filter(n => n > 0);
+  if (all.length < 3) return null;
+  const max = Math.max(bust, hips, shoulders);
+  const diffBH = Math.abs(bust - hips);
+  const waistRatio = waist / Math.max(bust, hips);
+  if (diffBH < max * 0.05 && waistRatio < 0.75)
