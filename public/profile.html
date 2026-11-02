@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Yumori · Profile</title>
+<link rel="stylesheet" href="/css/style.css" />
+<style>
+  .profile-head {
+    display:flex; gap:20px; align-items:center; flex-wrap:wrap;
+    background: var(--paper); border:2px dashed rgba(138,106,82,.35);
+    border-radius:22px; padding:20px; box-shadow:var(--shadow);
+  }
+  .profile-pic {
+    width:110px; height:110px; border-radius:50%;
+    object-fit:cover; border:3px solid var(--mint-dark);
+    background: var(--beige);
+  }
+  .profile-pic.placeholder {
+    display:flex; align-items:center; justify-content:center;
+    font-size:2.6rem; color:var(--brown);
+  }
+  .profile-head h1 { margin:0 0 4px; }
+  .profile-head .meta { font-size:.9rem; opacity:.75; }
+
+  .section { margin-top:22px; }
+  .section h2 { margin-bottom:10px; }
+
+  .result-box {
+    background:#fffdf7; border:2px solid rgba(138,106,82,.25);
+    border-radius:16px; padding:16px;
+    font-size:.92rem;
+  }
+  .result-box.empty-state { opacity:.7; font-style:italic; }
+  .result-box .pill {
+    display:inline-block; background:var(--mint);
+    border-radius:999px; padding:3px 12px; font-weight:600;
+    margin-bottom:8px;
+  }
+  .palette-grid {
+    display:grid; grid-template-columns:repeat(auto-fill, minmax(48px,1fr));
+    gap:8px; margin-top:8px;
+  }
+  .palette-grid .p { height:40px; border-radius:10px; box-shadow:inset 0 0 0 2px rgba(255,255,255,.4); }
+
+  .edit-row { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+  .edit-row input, .edit-row select { max-width:280px; }
+
+  .danger-zone {
+    border:2px dashed #d9a0a0; background:#fff5f5;
+    border-radius:16px; padding:16px; margin-top:20px;
+  }
+  .danger-zone h2 { color:#b04; }
+
+  .modal-bg {
+    position:fixed; inset:0; background:rgba(74,59,50,.4);
+    display:none; align-items:center; justify-content:center; z-index:80;
+    padding:20px;
+  }
+  .modal-bg.show { display:flex; }
+  .modal {
+    background: var(--cream); border:2px dashed var(--brown);
+    border-radius:22px; padding:24px; max-width:420px; width:100%;
+    box-shadow: var(--shadow); max-height:90vh; overflow-y:auto;
+  }
+  .modal h3 { margin-top:0; }
+  .modal label { display:block; margin-top:10px; font-weight:600; font-size:.9rem; }
+  .modal-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:16px; }
+  .hide { display:none !important; }
+</style>
+</head>
+<body>
+<nav class="topbar" id="topbar"></nav>
+<div class="container">
+
+  <!-- PROFILE HEAD -->
+  <div class="profile-head">
+    <div id="avatar-wrap"></div>
+    <div style="flex:1;min-width:180px">
+      <h1 id="uname">…</h1>
+      <p class="meta" id="country-line">country: —</p>
+      <div class="edit-row">
+        <button id="edit-btn">✏️ Edit profile</button>
+        <button id="logout-btn" style="background:#f0e0d0">Log out</button>
+      </div>
+    </div>
+    <div style="text-align:center">
+      <div id="donkey"></div>
+      <div class="bubble" id="bubble" style="margin:6px auto 0;max-width:200px;font-size:.85rem">
+        welcome back.
+      </div>
+    </div>
+  </div>
+
+  <!-- SAVED ANALYSES -->
+  <div class="section">
+    <h2>Saved colour palette 🎨</h2>
+    <div id="colour-box" class="result-box empty-state">no colour analysis yet.</div>
+  </div>
+
+  <div class="section">
+    <h2>Body analysis 🧵</h2>
+    <div id="body-box" class="result-box empty-state">no body analysis yet.</div>
+  </div>
+
+  <div class="section">
+    <h2>Face analysis 💇</h2>
+    <div id="face-box" class="result-box empty-state">no face analysis yet.</div>
+  </div>
+
+  <!-- DANGER ZONE -->
+  <div class="section danger-zone">
+    <h2>Account</h2>
+    <p style="font-size:.9rem;opacity:.8">
+      Deleting your account removes your wardrobe, analyses, checklist, and outfits.
+      This cannot be undone.
+    </p>
+    <button id="delete-account" style="background:#f5c4c4">🗑 Delete my account</button>
+  </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="modal-bg" id="edit-modal">
+  <div class="modal">
+    <h3>Edit profile</h3>
+
+    <label>Username
+      <input id="e-username" />
+    </label>
+    <p id="e-user-err" style="color:#b04;min-height:1em;font-size:.82rem"></p>
+
+    <label>Country
+      <input id="e-country" list="country-list" placeholder="start typing…" />
+      <datalist id="country-list"></datalist>
+    </label>
+
+    <label>Profile picture
+      <input type="file" id="e-avatar" accept="image/*" capture="user" />
+    </label>
+    <img id="e-avatar-preview" style="max-width:110px;border-radius:16px;display:none;margin-top:8px" />
+
+    <hr style="border:none;border-top:1px dashed rgba(138,106,82,.35);margin:16px 0" />
+
+    <h4 style="margin:0 0 6px">Change password</h4>
+    <label>Current password
+      <input type="password" id="e-pw-current" autocomplete="current-password" />
+    </label>
+    <label>New password
+      <input type="password" id="e-pw-new" autocomplete="new-password" />
+    </label>
+    <p id="e-pw-err" style="color:#b04;min-height:1em;font-size:.82rem"></p>
+
+    <p id="e-save-err" style="color:#b04;min-height:1em"></p>
+
+    <div class="modal-actions">
+      <button id="e-cancel" style="background:#f0e0d0">Cancel</button>
+      <button id="e-save">Save 💾</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { requireUser, navbar } from "/js/shared.js";
+import { mountDonkey, speakInto } from "/js/donkey.js";
+
+const $ = (id) => document.getElementById(id);
+const me = await requireUser();
+document.getElementById("topbar").innerHTML = navbar(me);
+
+mountDonkey($("donkey"), "idle", 120);
+speakInto($("bubble"), `hello ${me.username}.`);
+
+// ---------- header ----------
+function renderAvatar(avatar, username) {
+  const wrap = $("avatar-wrap");
+  if (avatar) {
+    wrap.innerHTML = `<img class="profile-pic" src="${avatar}" alt="${escapeHtml(username)}" />`;
+  } else {
+    wrap.innerHTML = `<div class="profile-pic placeholder">👤</div>`;
+  }
+}
+renderAvatar(me.avatar, me.username);
+$("uname").textContent = me.username;
+$("country-line").textContent = "country: " + (me.country || "—");
+
+// ---------- countries (short, searchable via datalist) ----------
+const COUNTRIES = [
+  "Afghanistan","Albania","Algeria","Argentina","Armenia","Australia","Austria",
+  "Bangladesh","Belgium","Bolivia","Brazil","Bulgaria","Cambodia","Canada","Chile",
+  "China","Colombia","Croatia","Cyprus","Czechia","Denmark","Egypt","Estonia",
+  "Finland","France","Germany","Ghana","Greece","Hungary","Iceland","India",
+  "Indonesia","Iran","Iraq","Ireland","Israel","Italy","Japan","Jordan","Kenya",
+  "South Korea","Kuwait","Latvia","Lebanon","Lithuania","Luxembourg","Malaysia",
+  "Mexico","Morocco","Nepal","Netherlands","New Zealand","Nigeria","Norway",
+  "Pakistan","Peru","Philippines","Poland","Portugal","Qatar","Romania","Russia",
+  "Saudi Arabia","Serbia","Singapore","Slovakia","Slovenia","South Africa","Spain",
+  "Sri Lanka","Sweden","Switzerland","Taiwan","Thailand","Tunisia","Turkey",
+  "Ukraine","United Arab Emirates","United Kingdom","United States","Uruguay",
+  "Vietnam","Zimbabwe"
+];
+const dl = $("country-list");
+COUNTRIES.forEach(c => {
+  const o = document.createElement("option");
+  o.value = c;
+  dl.appendChild(o);
+});
+
+// ---------- load saved analyses ----------
+async function loadAnalysis(kind) {
+  try {
+    const r = await fetch(`/api/analyses/${kind}`);
+    if (!r.ok) return null;
+    const j = await r.json();
+    return j?.data ?? null;
+  } catch { return null; }
+}
+
+const colour = await loadAnalysis("colour");
+const body   = await loadAnalysis("body");
+const face   = await loadAnalysis("face");
+
+if (colour) {
+  const box = $("colour-box");
+  box.classList.remove("empty-state");
+  const swatches = (colour.colours || []).map(c => `<div class="p" style="background:${c}"></div>`).join("");
+  box.innerHTML = `
+    <div class="pill">${escapeHtml(colour.season || "palette")}</div>
+    <p style="margin:0 0 6px">
+      ${colour.undertone ? `undertone: ${escapeHtml(colour.undertone)} · ` : ""}
+      ${colour.confidence ? `confidence: ${escapeHtml(colour.confidence)}` : ""}
+    </p>
+    <div class="palette-grid">${swatches || ""}</div>
+  `;
+} else {
+  $("colour-box").innerHTML = `no colour analysis yet. <a href="/colour.html">try it →</a>`;
+}
+
+if (body) {
+  const box = $("body-box");
+  box.classList.remove("empty-state");
+  box.innerHTML = `
+    <div class="pill">${escapeHtml(body.shape || "shape")}</div>
+    <p style="margin:0">${escapeHtml(body.tip || "")}</p>
+  `;
+} else {
+  $("body-box").innerHTML = `no body analysis yet. <a href="/body.html">try it →</a>`;
+}
+
+if (face) {
+  const box = $("face-box");
+  box.classList.remove("empty-state");
+  box.innerHTML = `
+    <div class="pill">${escapeHtml(face.shape || "shape")}</div>
+    <p style="margin:0">${escapeHtml(face.tip || "")}</p>
+  `;
+} else {
+  $("face-box").innerHTML = `no face analysis yet. <a href="/face.html">try it →</a>`;
+}
+
+// ---------- edit modal ----------
+let pendingAvatar = null;
+
+$("edit-btn").onclick = () => {
+  $("e-username").value = me.username;
+  $("e-country").value = me.country || "";
+  $("e-avatar-preview").style.display = "none";
+  $("e-user-err").textContent = "";
+  $("e-pw-err").textContent = "";
+  $("e-save-err").textContent = "";
+  $("e-pw-current").value = "";
+  $("e-pw-new").value = "";
+  pendingAvatar = null;
+  $("edit-modal").classList.add("show");
+};
+
+$("e-cancel").onclick = () => {
+  $("edit-modal").classList.remove("show");
+  pendingAvatar = null;
+};
+
+$("e-avatar").onchange = (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  pendingAvatar = f;
+  $("e-avatar-preview").src = URL.createObjectURL(f);
+  $("e-avatar-preview").style.display = "block";
+};
+
+$("e-save").onclick = async () => {
+  $("e-save-err").textContent = "";
+  $("e-user-err").textContent = "";
+  $("e-pw-err").textContent = "";
+
+  // 1. username / country
+  const newUser = $("e-username").value.trim();
+  const newCountry = $("e-country").value.trim();
+
+  if (newUser && newUser !== me.username) {
+    if (newUser.length < 3 || !/^[a-zA-Z0-9_]+$/.test(newUser)) {
+      $("e-user-err").textContent = "Username must be 3+ letters/numbers/_.";
+      return;
+    }
+  }
+
+  const patchBody = {};
+  if (newUser && newUser !== me.username) patchBody.username = newUser;
+  if (newCountry !== (me.country || "")) patchBody.country = newCountry;
+
+  if (Object.keys(patchBody).length) {
+    const r = await fetch("/api/me", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patchBody),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      $("e-save-err").textContent = j.error || "Couldn't update profile.";
+      return;
+    }
+  }
+
+  // 2. avatar
+  if (pendingAvatar) {
+    const fd = new FormData();
+    fd.append("avatar", pendingAvatar);
+    const r = await fetch("/api/me/avatar", { method: "POST", body: fd });
+    if (!r.ok) {
+      $("e-save-err").textContent = "Couldn't upload picture.";
+      return;
+    }
+    const j = await r.json();
+    me.avatar = j.avatar;
+    renderAvatar(me.avatar, me.username);
+  }
+
+  // 3. password (only if user filled both fields)
+  const cur = $("e-pw-current").value;
+  const nxt = $("e-pw-new").value;
+  if (cur || nxt) {
+    if (!cur || !nxt) {
+      $("e-pw-err").textContent = "Fill both current and new password.";
+      return;
+    }
+    if (nxt.length < 6) {
+      $("e-pw-err").textContent = "New password must be 6+ characters.";
+      return;
+    }
+    const r = await fetch("/api/me/password", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ current: cur, next: nxt }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      $("e-pw-err").textContent = j.error || "Password change failed.";
+      return;
+    }
+  }
+
+  // refresh display
+  const fresh = await (await fetch("/api/me")).json();
+  me.username = fresh.username;
+  me.country = fresh.country;
+  me.avatar = fresh.avatar;
+  document.getElementById("topbar").innerHTML = navbar(me);
+  $("uname").textContent = me.username;
+  $("country-line").textContent = "country: " + (me.country || "—");
+  renderAvatar(me.avatar, me.username);
+
+  $("edit-modal").classList.remove("show");
+  pendingAvatar = null;
+  speakInto($("bubble"), "saved. looking good.");
+};
+
+// ---------- logout ----------
+$("logout-btn").onclick = async () => {
+  await fetch("/api/logout", { method: "POST" });
+  location.href = "/index.html";
+};
+
+// ---------- delete account ----------
+$("delete-account").onclick = async () => {
+  if (!confirm("This will delete your account and all your data. Continue?")) return;
+  const check = prompt('Type "DELETE" to confirm.');
+  if (check !== "DELETE") return;
+  await fetch("/api/me", { method: "DELETE" });
+  location.href = "/index.html";
+};
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+</script>
+</body>
+</html>
