@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Yumori · Outfits</title>
+<link rel="stylesheet" href="/css/style.css" />
+<style>
+  .chat-layout { display:flex; gap:20px; flex-wrap:wrap; align-items:flex-start; }
+  .chat-col { flex:2 1 380px; min-width:0; }
+  .donkey-col { flex:1 1 220px; text-align:center; position:sticky; top:16px; }
+  .chat-log {
+    background: var(--paper);
+    border: 2px dashed rgba(138,106,82,.3);
+    border-radius: 22px;
+    padding: 16px;
+    max-height: 60vh;
+    overflow-y: auto;
+    display:flex; flex-direction:column; gap:12px;
+    box-shadow: var(--shadow);
+  }
+  .msg { display:flex; gap:8px; align-items:flex-end; }
+  .msg.user { justify-content:flex-end; }
+  .msg .bubble { max-width:75%; font-size:.92rem; }
+  .msg.user .bubble {
+    border-radius: 22px 22px 6px 22px;
+    background: var(--mint);
+    border-style: solid;
+    border-color: var(--mint-dark);
+  }
+  .avatar-mini {
+    width:28px;height:28px;border-radius:50%;background:var(--beige);
+    display:flex;align-items:center;justify-content:center;font-size:1rem;
+    flex-shrink:0;
+  }
+  .chat-input-row { display:flex; gap:8px; margin-top:12px; }
+  .chat-input-row input { flex:1; }
+  .chip-row { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+  .chip {
+    background: #fffdf7; border:1.5px dashed var(--brown);
+    border-radius:999px; padding:5px 12px; font-size:.8rem;
+    cursor:pointer; transition: background .15s;
+  }
+  .chip:hover { background: var(--mint); }
+
+  .outfit-card {
+    background:#fffdf7; border:2px solid rgba(138,106,82,.3);
+    border-radius:16px; padding:14px; margin-top:10px;
+  }
+  .outfit-grid {
+    display:grid; grid-template-columns:repeat(auto-fill,minmax(90px,1fr));
+    gap:10px; margin:10px 0;
+  }
+  .outfit-grid img {
+    width:100%; height:110px; object-fit:cover; border-radius:10px;
+    border:2px solid rgba(138,106,82,.2);
+  }
+  .essentials-list { list-style:none; padding:0; margin:8px 0 0; }
+  .essentials-list li {
+    display:flex; align-items:center; gap:8px; padding:6px 0;
+    border-bottom:1px dotted rgba(138,106,82,.25);
+  }
+  .essentials-list li .label { flex:1; }
+  .ok-btn { padding:4px 12px; font-size:.78rem; }
+  .ok-btn.added { background: var(--mint-dark); opacity:.7; pointer-events:none; }
+  .weather-badge {
+    display:inline-block; background:var(--beige);
+    padding:4px 10px; border-radius:999px; font-size:.8rem;
+    margin-top:6px;
+  }
+  .history-toggle {
+    font-size:.85rem; margin-top:10px;
+  }
+  .history-list { margin-top:8px; }
+  .history-item {
+    background:#fffdf7; border:1px dashed rgba(138,106,82,.35);
+    border-radius:12px; padding:10px 12px; margin-bottom:8px;
+    font-size:.85rem; cursor:pointer;
+  }
+  .history-item:hover { background: var(--paper); }
+  .hide { display:none !important; }
+  @media (max-width:700px) {
+    .donkey-col { position:static; order:-1; }
+  }
+</style>
+</head>
+<body>
+<nav class="topbar" id="topbar"></nav>
+<div class="container">
+
+  <h1>Outfits ✨</h1>
+  <p style="opacity:.8">Tell Jumino where you're going and it'll peek into your wardrobe.</p>
+
+  <div class="chat-layout">
+    <!-- DONKEY -->
+    <div class="donkey-col">
+      <div id="donkey"></div>
+      <div class="bubble" id="bubble" style="margin:8px auto 0;max-width:260px">
+        where are we off to today?
+      </div>
+      <div id="weather-box"></div>
+    </div>
+
+    <!-- CHAT -->
+    <div class="chat-col">
+      <div class="chat-log" id="chat-log"></div>
+
+      <div class="chip-row" id="chips">
+        <span class="chip">coffee date</span>
+        <span class="chip">uni lecture</span>
+        <span class="chip">picnic in the park</span>
+        <span class="chip">dinner out</span>
+        <span class="chip">work meeting</span>
+        <span class="chip">lazy sunday</span>
+      </div>
+
+      <div class="chat-input-row">
+        <input id="chat-input" placeholder="tell jumino about your day…" />
+        <button id="send-btn">Send</button>
+      </div>
+      <p id="chat-err" style="color:#b04;min-height:1em;font-size:.85rem"></p>
+
+      <button class="history-toggle" id="history-toggle">📜 past outfits</button>
+      <div class="history-list hide" id="history-list"></div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { requireUser, navbar } from "/js/shared.js";
+import { mountDonkey, speakInto } from "/js/donkey.js";
+
+const me = await requireUser();
+document.getElementById("topbar").innerHTML = navbar(me);
+const $ = (id) => document.getElementById(id);
+
+mountDonkey($("donkey"), "idle", 150);
+speakInto($("bubble"), `hi ${me.username}. where are we going today?`);
+
+// ---------- state ----------
+let wardrobe = [];
+let conversation = [];   // {role, content}
+let lastCity = null;
+
+// preload wardrobe so we can render item previews
+try {
+  const r = await fetch("/api/wardrobe");
+  wardrobe = await r.json();
+} catch {}
+
+const wardrobeById = new Map(wardrobe.map(w => [w.id, w]));
+
+// ---------- chat log ----------
+const log = $("chat-log");
+function appendMsg(role, text) {
+  const div = document.createElement("div");
+  div.className = "msg " + (role === "user" ? "user" : "donkey");
+  if (role === "user") {
+    div.innerHTML = `<div class="bubble">${escapeHtml(text)}</div>`;
+  } else {
+    div.innerHTML = `<div class="avatar-mini">🫏</div><div class="bubble">${escapeHtml(text)}</div>`;
+  }
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+  return div;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+// initial donkey message
+appendMsg("donkey", `hi ${me.username}. where are we going today?`);
+
+// ---------- send ----------
+$("send-btn").onclick = sendMessage;
+$("chat-input").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") sendMessage();
+});
+document.querySelectorAll("#chips .chip").forEach(c => {
+  c.onclick = () => { $("chat-input").value = c.textContent; sendMessage(); };
+});
+
+async function sendMessage() {
+  const text = $("chat-input").value.trim();
+  if (!text) return;
+  $("chat-input").value = "";
+  $("chat-err").textContent = "";
+  appendMsg("user", text);
+  conversation.push({ role: "user", content: text });
+
+  // swap donkey to think
+  mountDonkey($("donkey"), "think", 150);
+  speakInto($("bubble"), "hmm… let me think…");
+
+  try {
+    const r = await fetch("/api/outfits/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: text }),
+    });
+
+    if (r.status === 503) {
+      const j = await r.json().catch(() => ({}));
+      $("chat-err").textContent =
+        j.message || "Jumino's brain isn't connected yet — add OPENAI_API_KEY to .env.";
+      mountDonkey($("donkey"), "sad", 150);
+      speakInto($("bubble"), "i'm not quite awake yet… the key is missing.");
+      return;
+    }
+
+    if (!r.ok) throw new Error("fail");
+
+    const data = await r.json();
+    const reply = data.reply || "…i have an idea.";
+    appendMsg("donkey", reply);
+    conversation.push({ role: "assistant", content: reply });
+
+    // ---- render outfit ----
+    if (data.outfit && Array.isArray(data.outfit.itemIds) && data.outfit.itemIds.length) {
+      renderOutfit(data.outfit);
+    }
+
+    // ---- essentials with OK buttons ----
+    if (Array.isArray(data.essentials) && data.essentials.length) {
+      renderEssentials(data.essentials);
+    }
+
+    // mood: cheer
+    mountDonkey($("donkey"), "cheer", 150);
+    speakInto($("bubble"), "here's what i'd pick for you.");
+  } catch (e) {
+    $("chat-err").textContent = "Something went wrong. Try again?";
+    mountDonkey($("donkey"), "sad", 150);
+    speakInto($("bubble"), "sorry… the thread tangled. again?");
+  }
+}
+
+// ---------- outfit rendering ----------
+function renderOutfit(outfit) {
+  const items = outfit.itemIds.map(id => wardrobeById.get(id)).filter(Boolean);
+  if (!items.length) return;
+
+  const card = document.createElement("div");
+  card.className = "msg donkey";
+  const gridHtml = items.map(it => `
+    <figure style="margin:0;text-align:center">
+      <img src="${it.image_path}" alt="${escapeHtml(it.name || "item")}" />
+      <figcaption style="font-size:.7rem;opacity:.75;margin-top:2px">
+        ${escapeHtml(it.name || it.subcategory || it.category)}
+      </figcaption>
+    </figure>`).join("");
+
+  card.innerHTML = `
+    <div class="avatar-mini">🫏</div>
+    <div class="bubble" style="max-width:85%">
+      <strong>Outfit idea</strong>
+      <div class="outfit-grid">${gridHtml}</div>
+      ${outfit.why ? `<p style="margin:0;font-size:.85rem">${escapeHtml(outfit.why)}</p>` : ""}
+    </div>`;
+  log.appendChild(card);
+  log.scrollTop = log.scrollHeight;
+}
+
+// ---------- essentials ----------
+function renderEssentials(essentials) {
+  const card = document.createElement("div");
+  card.className = "msg donkey";
+  const lis = essentials.map(e => `
+    <li>
+      <span class="label">${escapeHtml(e)}</span>
+      <button class="ok-btn" data-item="${escapeHtml(e)}">OK</button>
+    </li>`).join("");
+  card.innerHTML = `
+    <div class="avatar-mini">🫏</div>
+    <div class="bubble" style="max-width:85%">
+      <strong>to bring</strong>
+      <ul class="essentials-list">${lis}</ul>
+    </div>`;
+  log.appendChild(card);
+  log.scrollTop = log.scrollHeight;
+
+  card.querySelectorAll(".ok-btn").forEach(btn => {
+    btn.onclick = async () => {
+      const label = btn.dataset.item;
+      const r = await fetch("/api/checklist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label }),
+      });
+      if (r.ok) {
+        btn.textContent = "added ✓";
+        btn.classList.add("added");
+        speakInto($("bubble"), `added "${label}" to your list.`);
+      } else {
+        btn.textContent = "already there";
+        btn.classList.add("added");
+      }
+    };
+  });
+}
+
+// ---------- weather helper (optional) ----------
+async function tryWeather(city) {
+  if (!city) return;
+  lastCity = city;
+  try {
+    const r = await fetch(`/api/weather?city=${encodeURIComponent(city)}`);
+    if (!r.ok) {
+      $("weather-box").innerHTML = `<p class="weather-badge" style="opacity:.7">weather unavailable</p>`;
+      return;
+    }
+    const j = await r.json();
+    $("weather-box").innerHTML = `
+      <p class="weather-badge">
+        🌡️ ${j.temp.toFixed(0)}°C · ${escapeHtml(j.description)} · wind ${j.wind} m/s
+      </p>`;
+  } catch {
+    $("weather-box").innerHTML = "";
+  }
+}
+
+// ---------- history ----------
+$("history-toggle").onclick = async () => {
+  const list = $("history-list");
+  if (!list.classList.contains("hide")) {
+    list.classList.add("hide");
+    return;
+  }
+  list.classList.remove("hide");
+  list.innerHTML = `<p style="opacity:.6;font-size:.85rem">loading…</p>`;
+  // NOTE: we do not have a GET /api/outfits endpoint.
+  // Instead we show what we do have: the current conversation summary.
+  // If you want persistent history, add a GET route on the server.
+  list.innerHTML = `
+    <p style="opacity:.7;font-size:.85rem">
+      This session's conversation is kept in memory. To browse older outfits across visits,
+      the server needs a GET /api/outfits endpoint (outfits table already stores suggestions).
+    </p>`;
+};
+</script>
+</body>
+</html>
